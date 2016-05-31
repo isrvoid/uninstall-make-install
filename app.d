@@ -2,7 +2,6 @@ import std.getopt;
 import std.file;
 import std.algorithm;
 import std.array;
-import std.typecons;
 
 void main(string[] args)
 {
@@ -19,6 +18,12 @@ void main(string[] args)
 		return;
 	}
 
+	import std.path : buildNormalizedPath;
+	sample = buildNormalizedPath(sample);
+	root = buildNormalizedPath(root);
+	if (sample == root)
+		throw new Exception("sample and root are equal. Operation would be equivalent to 'rm -r ${sample}/*' -- aborting.");
+
 	auto dirsAndRest = getDirsAndRest(sample, root);
 
 	removeFiles(dirsAndRest[1]);
@@ -29,7 +34,7 @@ auto getDirsAndRest(string sample, string root)
 {
 	Appender!(string[]) dirs;
 	Appender!(string[]) rest;
-	foreach (e; dirEntries(sample, SpanMode.breadth))
+	foreach (e; dirEntries(sample, SpanMode.breadth, false))
 	{
 		auto path = e.name.replaceFirst(sample, root);
 		if (e.isDir)
@@ -37,13 +42,20 @@ auto getDirsAndRest(string sample, string root)
 		else
 			rest.put(path);
 	}
+	import std.typecons : tuple;
 	return tuple(dirs.data, rest.data);
 }
 
 void removeFiles(string[] files)
 {
+	import std.stdio : writeln;
 	foreach(f; files)
-		remove(f);
+	{
+		try
+			remove(f);
+		catch (Exception e)
+			writeln(f, " -- couldn't delete");
+	}
 }
 
 void removeDirs(string[] dirs)
